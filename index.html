@@ -1,0 +1,2206 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="在线监测当前公网 IP 与基于 IP 推断的地理位置。">
+  <title>IP Lens - 当前 IP 位置监测</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23ffffff'/%3E%3Cpath d='M32 15a17 17 0 0 1 17 17M32 23a9 9 0 0 1 9 9M15 32a17 17 0 0 1 17-17M23 32a9 9 0 0 1 9-9' fill='none' stroke='%230f9f8f' stroke-width='5' stroke-linecap='round'/%3E%3Ccircle cx='32' cy='32' r='5' fill='%232563eb'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --text: #111827;
+      --muted: #64748b;
+      --soft: #94a3b8;
+      --border: #dbe3ef;
+      --border-strong: #c5d0df;
+      --grid-x: rgba(37, 99, 235, 0.035);
+      --grid-y: rgba(15, 159, 143, 0.035);
+      --control: rgba(255, 255, 255, 0.88);
+      --control-hover: #ffffff;
+      --control-text: #334155;
+      --panel: rgba(255, 255, 255, 0.94);
+      --panel-head: #ffffff;
+      --map-bg: #eef4f8;
+      --map-grid-x: rgba(37, 99, 235, 0.08);
+      --map-grid-y: rgba(15, 159, 143, 0.08);
+      --pin-bg: rgba(255, 255, 255, 0.92);
+      --pin-text: #111827;
+      --place-text: #334155;
+      --footer: #64748b;
+      --teal: #0f9f8f;
+      --blue: #2563eb;
+      --coral: #e85d50;
+      --green: #16a34a;
+      --red: #dc2626;
+      --amber: #d97706;
+      --shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+      --radius: 8px;
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #111418;
+      --surface: #181d24;
+      --surface-2: #202733;
+      --text: #eef4f8;
+      --muted: #9aa7b5;
+      --soft: #758195;
+      --border: #2e3948;
+      --border-strong: #425065;
+      --grid-x: rgba(96, 165, 250, 0.055);
+      --grid-y: rgba(45, 212, 191, 0.045);
+      --control: rgba(24, 29, 36, 0.92);
+      --control-hover: #202733;
+      --control-text: #d8e2ed;
+      --panel: rgba(24, 29, 36, 0.96);
+      --panel-head: #181d24;
+      --map-bg: #18222c;
+      --map-grid-x: rgba(96, 165, 250, 0.09);
+      --map-grid-y: rgba(45, 212, 191, 0.07);
+      --pin-bg: rgba(24, 29, 36, 0.94);
+      --pin-text: #eef4f8;
+      --place-text: #d8e2ed;
+      --footer: #9aa7b5;
+      --teal: #2dd4bf;
+      --blue: #60a5fa;
+      --coral: #fb7185;
+      --green: #22c55e;
+      --red: #f87171;
+      --amber: #f59e0b;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      min-width: 320px;
+      background: var(--bg);
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        linear-gradient(90deg, var(--grid-x) 1px, transparent 1px),
+        linear-gradient(180deg, var(--grid-y) 1px, transparent 1px),
+        var(--bg);
+      background-size: 48px 48px;
+      font-family: var(--font);
+      letter-spacing: 0;
+    }
+
+    button,
+    select {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .app {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 24px 0 32px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 11px;
+      min-width: 0;
+      font-weight: 800;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      flex: 0 0 auto;
+      border: 1px solid #b9d8d4;
+      border-radius: var(--radius);
+      color: var(--teal);
+      background: var(--surface);
+      box-shadow: 0 12px 24px rgba(15, 159, 143, 0.12);
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+
+    .state {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 38px;
+      padding: 0 11px;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--control);
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .state-light {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--soft);
+      box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.14);
+    }
+
+    .state.is-loading .state-light {
+      background: var(--blue);
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14);
+    }
+
+    .state.is-ok .state-light {
+      background: var(--green);
+      box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.14);
+    }
+
+    .state.is-error .state-light {
+      background: var(--red);
+      box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.14);
+    }
+
+    .icon-button {
+      display: inline-grid;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      flex: 0 0 auto;
+      color: var(--control-text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--control);
+      cursor: pointer;
+      transition: border-color 160ms ease, color 160ms ease, transform 160ms ease, background 160ms ease;
+    }
+
+    .icon-button:hover {
+      color: var(--blue);
+      border-color: #a9b8ca;
+      background: var(--control-hover);
+      transform: translateY(-1px);
+    }
+
+    .icon-button:focus-visible,
+    .segmented-button:focus-visible,
+    .theme-button:focus-visible,
+    .select-wrap select:focus-visible,
+    .map-link:focus-visible {
+      outline: 3px solid rgba(37, 99, 235, 0.2);
+      outline-offset: 2px;
+    }
+
+    .icon-button:disabled {
+      cursor: wait;
+      color: var(--soft);
+      transform: none;
+    }
+
+    .icon {
+      width: 18px;
+      height: 18px;
+      stroke-width: 2;
+    }
+
+    .select-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 38px;
+      padding: 0 8px 0 11px;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--control);
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .select-wrap select {
+      min-width: 0;
+      height: 28px;
+      color: var(--text);
+      border: 0;
+      background: transparent;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    #sourceSelect {
+      width: 96px;
+    }
+
+    .select-wrap.is-source select {
+      min-width: 0;
+    }
+
+    .segmented-toggle,
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      min-height: 38px;
+      padding: 3px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--control);
+    }
+
+    .segmented-button,
+    .theme-button {
+      display: inline-grid;
+      width: 32px;
+      height: 30px;
+      place-items: center;
+      color: var(--muted);
+      border-radius: 6px;
+      background: transparent;
+      cursor: pointer;
+      transition: color 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+
+    .segmented-button:hover,
+    .theme-button:hover {
+      color: var(--blue);
+      background: var(--control-hover);
+    }
+
+    .segmented-button.is-active,
+    .theme-button.is-active {
+      color: var(--blue);
+      background: var(--surface);
+      box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+    }
+
+    .segmented-button svg,
+    .theme-button svg {
+      width: 17px;
+      height: 17px;
+      stroke-width: 2;
+    }
+
+    .language-button .flag {
+      font-size: 16px;
+    }
+
+    .protocol-glyph {
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1;
+      font-weight: 900;
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(330px, 0.92fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .primary-panel {
+      grid-column: 1;
+      min-height: 396px;
+      padding: 26px;
+    }
+
+    .map-panel {
+      grid-column: 2;
+      min-height: 396px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .history-panel {
+      grid-column: 1 / -1;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel-head);
+    }
+
+    .panel-title {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.2;
+      font-weight: 850;
+    }
+
+    .panel-sub {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      font-weight: 650;
+    }
+
+    .map-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 32px;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .primary-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 26px;
+    }
+
+    .label {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1;
+      font-weight: 850;
+      text-transform: uppercase;
+    }
+
+    .ip-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .ip-address {
+      margin: 0;
+      min-width: 0;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: clamp(30px, 5.2vw, 56px);
+      line-height: 1.05;
+      font-weight: 850;
+      letter-spacing: 0;
+      overflow-wrap: normal;
+      white-space: nowrap;
+      word-break: normal;
+    }
+
+    .ip-address.is-ipv6 {
+      font-size: clamp(22px, 2vw, 28px);
+      line-height: 1.16;
+      white-space: normal;
+    }
+
+    .ip-address.is-ipv6 span {
+      display: block;
+      white-space: nowrap;
+    }
+
+    .ip-tools {
+      display: inline-flex;
+      flex: 0 0 auto;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 7px;
+      padding-top: 2px;
+    }
+
+    .ip-type {
+      flex: 0 0 auto;
+      color: var(--teal);
+      font-size: 14px;
+      line-height: 1;
+      font-weight: 900;
+    }
+
+    .source-block {
+      min-width: 148px;
+      padding-left: 18px;
+      border-left: 1px solid var(--border);
+    }
+
+    .source-value {
+      margin: 0;
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 850;
+    }
+
+    .source-meta {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      font-weight: 650;
+    }
+
+    .place-line {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      min-height: 30px;
+      margin: 18px 0 22px;
+      color: var(--place-text);
+      font-size: 17px;
+      line-height: 1.45;
+      font-weight: 750;
+    }
+
+    .place-line .icon {
+      flex: 0 0 auto;
+      margin-top: 3px;
+      color: var(--coral);
+    }
+
+    .info-rows {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      border-top: 1px solid var(--border);
+      border-left: 1px solid var(--border);
+    }
+
+    .info-row {
+      min-height: 84px;
+      padding: 15px;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+    }
+
+    .info-row span {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.2;
+      font-weight: 800;
+    }
+
+    .info-row strong {
+      display: block;
+      min-width: 0;
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1.35;
+      font-weight: 850;
+      overflow-wrap: anywhere;
+    }
+
+    .refresh-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      font-weight: 700;
+    }
+
+    .refresh-line strong {
+      color: var(--text);
+      font-weight: 850;
+    }
+
+    .map-wrap {
+      position: relative;
+      min-height: 314px;
+      flex: 1;
+      overflow: hidden;
+      background:
+        linear-gradient(90deg, var(--map-grid-y) 1px, transparent 1px),
+        linear-gradient(180deg, var(--map-grid-x) 1px, transparent 1px),
+        var(--map-bg);
+      background-size: 34px 34px;
+    }
+
+    .map-frame {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 314px;
+      border: 0;
+    }
+
+    .map-empty {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      color: var(--muted);
+      text-align: center;
+      font-weight: 750;
+    }
+
+    .map-meta {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      border-top: 1px solid var(--border);
+      background: var(--panel-head);
+    }
+
+    .map-meta div {
+      min-width: 0;
+      padding: 13px 14px;
+      border-right: 1px solid var(--border);
+    }
+
+    .map-meta div:last-child {
+      border-right: 0;
+    }
+
+    .map-meta span {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 850;
+      text-transform: uppercase;
+    }
+
+    .map-meta strong {
+      display: block;
+      min-width: 0;
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.35;
+      font-weight: 850;
+      overflow-wrap: normal;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      background: var(--panel-head);
+    }
+
+    table {
+      width: 100%;
+      min-width: 520px;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 13px 18px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    th {
+      color: var(--muted);
+      background: var(--surface-2);
+      font-size: 11px;
+      font-weight: 850;
+      text-transform: uppercase;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .mono {
+      font-family: var(--mono);
+      font-weight: 760;
+      overflow-wrap: anywhere;
+    }
+
+    .ip-cell-line {
+      display: block;
+    }
+
+    .country-inline {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      white-space: nowrap;
+    }
+
+    #countryValue .country-inline,
+    .map-meta .country-inline {
+      display: inline-flex !important;
+      max-width: 100%;
+      vertical-align: middle;
+    }
+
+    .country-inline span:last-child {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .flag {
+      flex: 0 0 auto;
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    .provider-cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      font-weight: 800;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: var(--soft);
+    }
+
+    .dot.ok {
+      background: var(--green);
+    }
+
+    .dot.loading {
+      background: var(--blue);
+    }
+
+    .dot.error {
+      background: var(--red);
+    }
+
+    .dot.skipped {
+      background: var(--soft);
+    }
+
+    .muted {
+      color: var(--muted);
+      font-weight: 650;
+    }
+
+    .history-empty {
+      padding: 26px 18px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      background: var(--panel-head);
+    }
+
+    .footer-note {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 16px;
+      color: var(--footer);
+      font-size: 12px;
+      line-height: 1.55;
+      font-weight: 650;
+    }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 20;
+      max-width: min(360px, calc(100vw - 36px));
+      padding: 12px 14px;
+      color: #ffffff;
+      border-radius: var(--radius);
+      background: #111827;
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.24);
+      font-size: 13px;
+      line-height: 1.4;
+      font-weight: 760;
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity 180ms ease, transform 180ms ease;
+    }
+
+    .toast.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 900px) {
+      .app {
+        width: min(100% - 24px, 680px);
+        padding-top: 16px;
+      }
+
+      .topbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .top-actions {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+      }
+
+      .dashboard {
+        grid-template-columns: 1fr;
+      }
+
+      .primary-panel,
+      .map-panel,
+      .history-panel {
+        grid-column: 1;
+      }
+
+      .primary-top {
+        flex-direction: column;
+      }
+
+      .source-block {
+        width: 100%;
+        padding: 14px 0 0;
+        border-top: 1px solid var(--border);
+        border-left: 0;
+      }
+    }
+
+    @media (max-width: 600px) {
+      body {
+        background-size: 36px 36px;
+      }
+
+      .primary-panel {
+        padding: 20px;
+      }
+
+      .ip-address {
+        font-size: clamp(24px, 7.4vw, 32px);
+      }
+
+      .ip-row {
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .info-rows,
+      .map-meta {
+        grid-template-columns: 1fr;
+      }
+
+      .map-meta div {
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .map-meta div:last-child {
+        border-bottom: 0;
+      }
+
+      .refresh-line,
+      .footer-note {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      table {
+        min-width: 100%;
+      }
+
+      th,
+      td {
+        padding: 12px 10px;
+        font-size: 12px;
+      }
+
+      .history-panel table {
+        min-width: 780px;
+      }
+
+      .select-wrap {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .state {
+        flex: 1 1 auto;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        transition: none !important;
+        animation: none !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="IP Lens">
+        <span class="brand-mark" aria-hidden="true">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <circle cx="12" cy="12" r="3.5"></circle>
+            <path d="M4.2 12a7.8 7.8 0 0 1 15.6 0"></path>
+            <path d="M2 12a10 10 0 0 1 20 0"></path>
+            <path d="M12 15.5v4"></path>
+          </svg>
+        </span>
+        <span>IP Lens</span>
+      </a>
+
+      <div class="top-actions">
+        <div id="state" class="state is-loading" role="status" aria-live="polite">
+          <span class="state-light" aria-hidden="true"></span>
+          <span id="stateText">同步中</span>
+        </div>
+
+        <button id="refreshButton" class="icon-button" type="button" title="刷新" aria-label="刷新">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <path d="M20 6v5h-5"></path>
+            <path d="M4 18v-5h5"></path>
+            <path d="M18.7 9a7 7 0 0 0-11.4-2.2L4 10"></path>
+            <path d="M5.3 15a7 7 0 0 0 11.4 2.2L20 14"></path>
+          </svg>
+        </button>
+
+        <label class="select-wrap is-source" for="sourceSelect">
+          <span id="sourceSelectLabel">数据源</span>
+          <select id="sourceSelect"></select>
+        </label>
+
+        <div id="familyToggle" class="segmented-toggle family-toggle" role="group" aria-label="IP 协议">
+          <button class="segmented-button family-button" type="button" data-family-choice="ipv4" title="IPv4" aria-label="IPv4" aria-pressed="false">
+            <span class="protocol-glyph" aria-hidden="true">4</span>
+          </button>
+          <button class="segmented-button family-button" type="button" data-family-choice="ipv6" title="IPv6" aria-label="IPv6" aria-pressed="false">
+            <span class="protocol-glyph" aria-hidden="true">6</span>
+          </button>
+        </div>
+
+        <div id="languageToggle" class="segmented-toggle language-toggle" role="group" aria-label="语言">
+          <button class="segmented-button language-button" type="button" data-lang-choice="auto" title="自动" aria-label="自动" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+              <path d="m5 8 6 6"></path>
+              <path d="m4 14 6-6 2-3"></path>
+              <path d="M2 5h12"></path>
+              <path d="M7 2h1"></path>
+              <path d="m13 22 5-10 4 10"></path>
+              <path d="M15 18h6"></path>
+            </svg>
+          </button>
+          <button class="segmented-button language-button" type="button" data-lang-choice="zh" title="中文" aria-label="中文" aria-pressed="false">
+            <span class="flag" aria-hidden="true">🇨🇳</span>
+          </button>
+          <button class="segmented-button language-button" type="button" data-lang-choice="en" title="English" aria-label="English" aria-pressed="false">
+            <span class="flag" aria-hidden="true">🇺🇸</span>
+          </button>
+        </div>
+
+        <div id="themeToggle" class="theme-toggle" role="group" aria-label="主题">
+          <button class="theme-button" type="button" data-theme-choice="auto" title="自动" aria-label="自动" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="12" rx="2"></rect>
+              <path d="M8 20h8"></path>
+              <path d="M12 16v4"></path>
+              <path d="M8 8h3"></path>
+              <path d="M13 8h3"></path>
+              <path d="M10 11h4"></path>
+            </svg>
+          </button>
+          <button class="theme-button" type="button" data-theme-choice="light" title="日间" aria-label="日间" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path d="M12 2v2"></path>
+              <path d="M12 20v2"></path>
+              <path d="m4.93 4.93 1.41 1.41"></path>
+              <path d="m17.66 17.66 1.41 1.41"></path>
+              <path d="M2 12h2"></path>
+              <path d="M20 12h2"></path>
+              <path d="m6.34 17.66-1.41 1.41"></path>
+              <path d="m19.07 4.93-1.41 1.41"></path>
+            </svg>
+          </button>
+          <button class="theme-button" type="button" data-theme-choice="dark" title="夜间" aria-label="夜间" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+              <path d="M20.5 14.5A8 8 0 0 1 9.5 3.5 7 7 0 1 0 20.5 14.5Z"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="dashboard">
+      <section class="panel primary-panel" aria-labelledby="currentIpTitle">
+        <div class="primary-top">
+          <div>
+            <p id="currentIpTitle" class="label">Public IP</p>
+            <div class="ip-row">
+              <h1 id="ipAddress" class="ip-address">--</h1>
+              <div class="ip-tools">
+                <button id="copyButton" class="icon-button" type="button" title="复制 IP" aria-label="复制 IP">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                    <rect x="9" y="9" width="10" height="10" rx="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+                <span id="ipType" class="ip-type">--</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="source-block">
+            <p id="sourceBlockLabel" class="label">数据源</p>
+            <p id="sourceValue" class="source-value">--</p>
+            <p id="sourceMeta" class="source-meta">等待响应</p>
+          </div>
+        </div>
+
+        <div class="place-line">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <path d="M12 21s7-5.1 7-11a7 7 0 1 0-14 0c0 5.9 7 11 7 11Z"></path>
+            <circle cx="12" cy="10" r="2.4"></circle>
+          </svg>
+          <span id="placeValue">正在获取基于 IP 的位置</span>
+        </div>
+
+        <div class="info-rows">
+          <div class="info-row">
+            <span id="coordsLabel">经纬度</span>
+            <strong id="coordsValue">--</strong>
+          </div>
+          <div class="info-row">
+            <span id="ispLabel">网络运营商</span>
+            <strong id="ispValue">--</strong>
+          </div>
+          <div class="info-row">
+            <span id="asnLabel">ASN / 组织</span>
+            <strong id="asnValue">--</strong>
+          </div>
+          <div class="info-row">
+            <span id="timezoneLabel">时区</span>
+            <strong id="timezoneValue">--</strong>
+          </div>
+        </div>
+
+        <div class="refresh-line">
+          <span><span id="updatedLabel">上次更新：</span><strong id="updatedValue">--</strong></span>
+        </div>
+      </section>
+
+      <section class="panel map-panel" aria-labelledby="mapTitle">
+        <div class="panel-head">
+          <div>
+            <h2 id="mapTitle" class="panel-title">位置地图</h2>
+            <p id="accuracyValue" class="panel-sub">IP 定位通常为城市或运营商节点级别</p>
+          </div>
+          <a id="mapLink" class="map-link" href="https://www.openstreetmap.org/" target="_blank" rel="noopener">
+            <span>OSM</span>
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+              <path d="M7 17 17 7"></path>
+              <path d="M9 7h8v8"></path>
+            </svg>
+          </a>
+        </div>
+        <div id="mapWrap" class="map-wrap">
+          <div class="map-empty">等待坐标</div>
+        </div>
+        <div class="map-meta">
+          <div>
+            <span id="cityLabel">城市</span>
+            <strong id="cityValue">--</strong>
+          </div>
+          <div>
+            <span id="regionLabel">地区</span>
+            <strong id="regionValue">--</strong>
+          </div>
+          <div>
+            <span id="countryLabel">国家 / 地区</span>
+            <strong id="countryValue">--</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel history-panel" aria-labelledby="historyTitle">
+        <div class="panel-head">
+          <div>
+            <h2 id="historyTitle" class="panel-title">变更记录</h2>
+            <p class="panel-sub">保存在当前浏览器本地</p>
+          </div>
+          <button id="clearHistoryButton" class="icon-button" type="button" title="清空记录" aria-label="清空记录">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+              <path d="M3 6h18"></path>
+              <path d="M8 6V4h8v2"></path>
+              <path d="m6 6 1 15h10l1-15"></path>
+              <path d="M10 11v6"></path>
+              <path d="M14 11v6"></path>
+            </svg>
+          </button>
+        </div>
+        <div id="historyWrap" class="table-wrap"></div>
+      </section>
+    </main>
+
+    <footer class="footer-note">
+      <span>所有查询直接从浏览器发出；这个静态页面没有服务器端存储。</span>
+      <span>公网 IP 位置不等同于 GPS 位置，VPN、代理和运营商出口会影响结果。</span>
+    </footer>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const STORAGE_PREFIX = "ip-lens";
+    const HISTORY_KEY = `${STORAGE_PREFIX}-history-v1`;
+    const SOURCE_KEY = `${STORAGE_PREFIX}-source-v1`;
+    const LANG_KEY = `${STORAGE_PREFIX}-language-v1`;
+    const THEME_KEY = `${STORAGE_PREFIX}-theme-v1`;
+    const FAMILY_KEY = `${STORAGE_PREFIX}-family-v1`;
+    const MAX_HISTORY = 16;
+
+    const i18n = {
+      zh: {
+        pageTitle: "IP Lens - 当前 IP 位置监测",
+        metaDescription: "在线监测当前公网 IP 与基于 IP 推断的地理位置。",
+        publicIp: "Public IP",
+        source: "数据源",
+        autoSource: "自动",
+        ipFamily: "IP 协议",
+        ipv4: "IPv4",
+        ipv6: "IPv6",
+        language: "语言",
+        theme: "主题",
+        languageAuto: "自动",
+        languageZh: "🇨🇳 中文",
+        languageEn: "🇺🇸 EN",
+        auto: "自动",
+        zh: "中文",
+        en: "EN",
+        light: "日间",
+        dark: "夜间",
+        refresh: "刷新",
+        copyIp: "复制 IP",
+        clearHistory: "清空记录",
+        syncing: "同步中",
+        manualRefreshing: "手动刷新中",
+        synced: "已更新",
+        syncFailed: "同步失败",
+        requesting: "请求中",
+        waitingResponse: "等待响应",
+        respondedAt: "响应于 {time}",
+        responseMs: "已采用 · {ms} ms",
+        fallbackResponseMs: "已采用 · {ms} ms · 自动兜底",
+        fetchingPlace: "正在获取基于 IP 的位置",
+        noPlaceInfo: "未返回位置信息",
+        cannotGetIp: "无法获取公网 IP",
+        noCoord: "当前数据源未返回坐标",
+        coords: "经纬度",
+        isp: "网络运营商",
+        asnOrg: "ASN / 组织",
+        timezone: "时区",
+        lastUpdated: "上次更新：",
+        mapTitle: "位置地图",
+        mapDefaultSub: "IP 定位通常为城市或运营商节点级别",
+        accuracy: "定位精度：{value}",
+        accuracyKm: "约 {km} km",
+        cityLevel: "城市级",
+        ipOnly: "仅 IP",
+        city: "城市",
+        region: "省份 / 州",
+        countryRegion: "国家 / 地区",
+        historyTitle: "变更记录",
+        historySub: "保存在当前浏览器本地",
+        noHistory: "暂无记录",
+        time: "时间",
+        ipAddress: "IP 地址",
+        ipType: "IP 类别",
+        location: "位置",
+        provider: "来源",
+        allClientSide: "所有查询直接从浏览器发出；这个静态页面没有服务器端存储。",
+        ipAccuracyNote: "公网 IP 位置不等同于 GPS 位置，VPN、代理和运营商出口会影响结果。",
+        sourceSetToast: "数据源已切换为 {label}",
+        familySetToast: "IP 协议已切换为 {label}",
+        familyUnsupported: "{source} 不支持 {family} 专用入口",
+        languageSetToast: "语言已切换",
+        themeSetToast: "主题已切换",
+        historyCleared: "记录已清空",
+        noIpToCopy: "当前还没有可复制的 IP",
+        copied: "IP 已复制",
+        copyBlocked: "浏览器阻止了复制操作",
+        unknownError: "未知错误",
+        timeout: "请求超时",
+      },
+      en: {
+        pageTitle: "IP Lens - Current IP Location Monitor",
+        metaDescription: "Monitor your current public IP address and IP-based location.",
+        publicIp: "Public IP",
+        source: "Source",
+        autoSource: "Auto",
+        ipFamily: "IP Protocol",
+        ipv4: "IPv4",
+        ipv6: "IPv6",
+        language: "Language",
+        theme: "Theme",
+        languageAuto: "Auto",
+        languageZh: "🇨🇳 中文",
+        languageEn: "🇺🇸 EN",
+        auto: "Auto",
+        zh: "中文",
+        en: "EN",
+        light: "Light",
+        dark: "Dark",
+        refresh: "Refresh",
+        copyIp: "Copy IP",
+        clearHistory: "Clear history",
+        syncing: "Syncing",
+        manualRefreshing: "Refreshing",
+        synced: "Updated",
+        syncFailed: "Sync failed",
+        requesting: "Requesting",
+        waitingResponse: "Waiting for response",
+        respondedAt: "Responded at {time}",
+        responseMs: "Used · {ms} ms",
+        fallbackResponseMs: "Used · {ms} ms · fallback",
+        fetchingPlace: "Fetching IP-based location",
+        noPlaceInfo: "No location returned",
+        cannotGetIp: "Unable to get public IP",
+        noCoord: "Selected source did not return coordinates",
+        coords: "Coordinates",
+        isp: "ISP",
+        asnOrg: "ASN / Organization",
+        timezone: "Timezone",
+        lastUpdated: "Last updated: ",
+        mapTitle: "Location Map",
+        mapDefaultSub: "IP geolocation is usually city or network-exit level",
+        accuracy: "Accuracy: {value}",
+        accuracyKm: "about {km} km",
+        cityLevel: "city level",
+        ipOnly: "IP only",
+        city: "City",
+        region: "Province / State",
+        countryRegion: "Country / Region",
+        historyTitle: "Change History",
+        historySub: "Stored locally in this browser",
+        noHistory: "No records yet",
+        time: "Time",
+        ipAddress: "IP Address",
+        ipType: "IP Type",
+        location: "Location",
+        provider: "Source",
+        allClientSide: "All lookups are sent directly from your browser; this static page has no server-side storage.",
+        ipAccuracyNote: "Public IP location is not GPS location. VPNs, proxies, and ISP exits can affect results.",
+        sourceSetToast: "Source switched to {label}",
+        familySetToast: "IP protocol switched to {label}",
+        familyUnsupported: "{source} does not support a dedicated {family} endpoint",
+        languageSetToast: "Language switched",
+        themeSetToast: "Theme switched",
+        historyCleared: "History cleared",
+        noIpToCopy: "No IP to copy yet",
+        copied: "IP copied",
+        copyBlocked: "The browser blocked clipboard access",
+        unknownError: "Unknown error",
+        timeout: "Request timed out",
+      },
+    };
+
+    const familyIpUrls = {
+      ipv4: "https://api-ipv4.ip.sb/ip",
+      ipv6: "https://api-ipv6.ip.sb/ip",
+    };
+
+    const providers = [
+      {
+        id: "geojs",
+        name: "GeoJS",
+        urls: {
+          auto: "https://get.geojs.io/v1/ip/geo.json",
+          ipv4: "https://ipv4.geojs.io/v1/ip/geo.json",
+          ipv6: "https://ipv6.geojs.io/v1/ip/geo.json",
+        },
+        normalize(data) {
+          if (!data || !data.ip) throw new Error("No IP returned");
+          return {
+            ip: data.ip,
+            ipType: inferIpType(data.ip),
+            city: data.city || "",
+            region: data.region || "",
+            country: data.country || data.country_code || "",
+            countryCode: data.country_code || "",
+            latitude: toNumber(data.latitude),
+            longitude: toNumber(data.longitude),
+            isp: data.organization_name || data.organization || "",
+            org: data.organization || data.organization_name || "",
+            asn: data.asn ? `AS${String(data.asn).replace(/^AS/i, "")}` : "",
+            timezone: data.timezone || "",
+            accuracyKind: data.accuracy ? "km" : "city",
+            accuracyKm: data.accuracy || "",
+          };
+        },
+      },
+      {
+        id: "ipsb",
+        name: "IP.SB",
+        urls: {
+          ipv4: "https://api-ipv4.ip.sb/geoip",
+          ipv6: "https://api-ipv6.ip.sb/geoip",
+        },
+        normalize(data) {
+          if (!data || !data.ip) throw new Error("No IP returned");
+          return {
+            ip: data.ip,
+            ipType: inferIpType(data.ip),
+            city: data.city || "",
+            region: data.region || data.region_code || "",
+            country: data.country || data.country_code || "",
+            countryCode: data.country_code || "",
+            latitude: toNumber(data.latitude),
+            longitude: toNumber(data.longitude),
+            isp: data.isp || data.asn_organization || data.organization || "",
+            org: data.organization || data.asn_organization || data.isp || "",
+            asn: data.asn ? `AS${String(data.asn).replace(/^AS/i, "")}` : "",
+            timezone: data.timezone || "",
+            accuracyKind: "city",
+          };
+        },
+      },
+      {
+        id: "ipinfo",
+        name: "ipinfo.io",
+        urls: {
+          auto: "https://ipinfo.io/json",
+          ipv4: "https://ipinfo.io/json",
+          ipv6: "https://v6.ipinfo.io/json",
+        },
+        normalize(data) {
+          if (!data || !data.ip) throw new Error("No IP returned");
+          const loc = typeof data.loc === "string" ? data.loc.split(",") : [];
+          const orgParts = typeof data.org === "string" ? data.org.split(/\s+(.+)/) : [];
+          return {
+            ip: data.ip,
+            ipType: inferIpType(data.ip),
+            city: data.city || "",
+            region: data.region || "",
+            country: data.country || "",
+            countryCode: data.country || "",
+            latitude: toNumber(loc[0]),
+            longitude: toNumber(loc[1]),
+            isp: orgParts[1] || data.org || "",
+            org: data.org || "",
+            asn: orgParts[0] || "",
+            timezone: data.timezone || "",
+            accuracyKind: "city",
+          };
+        },
+      },
+      {
+        id: "freeipapi",
+        name: "FreeIPAPI",
+        urlsForIp: {
+          ipv4: (ip) => `https://free.freeipapi.com/api/json/${encodeURIComponent(ip)}`,
+          ipv6: (ip) => `https://free.freeipapi.com/api/json/${encodeURIComponent(ip)}`,
+        },
+        normalize(data) {
+          if (!data || !data.ipAddress) throw new Error("No IP returned");
+          return {
+            ip: data.ipAddress,
+            ipType: data.ipVersion ? `IPv${data.ipVersion}` : inferIpType(data.ipAddress),
+            city: data.cityName || "",
+            region: data.regionName || data.regionCode || "",
+            country: data.countryName || data.countryCode || "",
+            countryCode: data.countryCode || "",
+            latitude: toNumber(data.latitude),
+            longitude: toNumber(data.longitude),
+            isp: data.asnOrganization || "",
+            org: data.asnOrganization || "",
+            asn: data.asn ? `AS${String(data.asn).replace(/^AS/i, "")}` : "",
+            timezone: Array.isArray(data.timeZones) ? data.timeZones[0] || "" : data.timeZone || "",
+            accuracyKind: "city",
+          };
+        },
+      },
+      {
+        id: "monip",
+        name: "MonIP",
+        urlsForIp: {
+          ipv4: (ip) => `https://monip.lws.fr/api/${encodeURIComponent(ip)}`,
+          ipv6: (ip) => `https://monip.lws.fr/api/${encodeURIComponent(ip)}`,
+        },
+        normalize(data) {
+          if (!data || !data.ip) throw new Error("No IP returned");
+          return {
+            ip: data.ip,
+            ipType: data.version ? `IPv${data.version}` : inferIpType(data.ip),
+            city: data.city || "",
+            region: data.region || "",
+            country: data.country || data.country_code || "",
+            countryCode: data.country_code || "",
+            latitude: toNumber(data.latitude),
+            longitude: toNumber(data.longitude),
+            isp: data.isp || data.asn_org || "",
+            org: data.asn_org || data.isp || "",
+            asn: data.asn || "",
+            timezone: data.timezone || "",
+            accuracyKind: data.accuracy_radius ? "km" : "city",
+            accuracyKm: data.accuracy_radius || "",
+          };
+        },
+      },
+    ];
+
+    const els = {
+      state: document.getElementById("state"),
+      stateText: document.getElementById("stateText"),
+      refreshButton: document.getElementById("refreshButton"),
+      copyButton: document.getElementById("copyButton"),
+      clearHistoryButton: document.getElementById("clearHistoryButton"),
+      sourceSelect: document.getElementById("sourceSelect"),
+      familyToggle: document.getElementById("familyToggle"),
+      familyButtons: document.querySelectorAll("[data-family-choice]"),
+      languageToggle: document.getElementById("languageToggle"),
+      languageButtons: document.querySelectorAll("[data-lang-choice]"),
+      themeToggle: document.getElementById("themeToggle"),
+      themeButtons: document.querySelectorAll("[data-theme-choice]"),
+      sourceSelectLabel: document.getElementById("sourceSelectLabel"),
+      ipAddress: document.getElementById("ipAddress"),
+      ipType: document.getElementById("ipType"),
+      sourceValue: document.getElementById("sourceValue"),
+      sourceMeta: document.getElementById("sourceMeta"),
+      sourceBlockLabel: document.getElementById("sourceBlockLabel"),
+      placeValue: document.getElementById("placeValue"),
+      coordsLabel: document.getElementById("coordsLabel"),
+      coordsValue: document.getElementById("coordsValue"),
+      ispLabel: document.getElementById("ispLabel"),
+      ispValue: document.getElementById("ispValue"),
+      asnLabel: document.getElementById("asnLabel"),
+      asnValue: document.getElementById("asnValue"),
+      timezoneLabel: document.getElementById("timezoneLabel"),
+      timezoneValue: document.getElementById("timezoneValue"),
+      updatedLabel: document.getElementById("updatedLabel"),
+      updatedValue: document.getElementById("updatedValue"),
+      accuracyValue: document.getElementById("accuracyValue"),
+      mapTitle: document.getElementById("mapTitle"),
+      mapWrap: document.getElementById("mapWrap"),
+      mapLink: document.getElementById("mapLink"),
+      cityLabel: document.getElementById("cityLabel"),
+      cityValue: document.getElementById("cityValue"),
+      regionLabel: document.getElementById("regionLabel"),
+      regionValue: document.getElementById("regionValue"),
+      countryLabel: document.getElementById("countryLabel"),
+      countryValue: document.getElementById("countryValue"),
+      historyTitle: document.getElementById("historyTitle"),
+      historySub: document.querySelector("#historyTitle + .panel-sub"),
+      historyWrap: document.getElementById("historyWrap"),
+      footerNotes: document.querySelectorAll(".footer-note span"),
+      toast: document.getElementById("toast"),
+    };
+
+    const systemThemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    let currentResult = null;
+    let isRefreshing = false;
+    let currentLang = "zh";
+    let languageChoice = "auto";
+    let themeChoice = "auto";
+    let familyChoice = "ipv4";
+    let stateKind = "loading";
+    let stateKey = "syncing";
+    let lastSourceError = "";
+
+    init();
+
+    function init() {
+      languageChoice = normalizeLanguageChoice(localStorage.getItem(LANG_KEY) || "auto");
+      themeChoice = normalizeThemeChoice(localStorage.getItem(THEME_KEY) || "auto");
+      familyChoice = normalizeFamilyChoice(localStorage.getItem(FAMILY_KEY) || "ipv4");
+      const savedSource = localStorage.getItem(SOURCE_KEY) || "auto";
+
+      renderSourceOptions(savedSource);
+      if (els.sourceSelect.value !== savedSource) {
+        localStorage.setItem(SOURCE_KEY, els.sourceSelect.value);
+      }
+      applyTheme();
+      updateThemeButtons();
+      updateFamilyButtons();
+      applyLanguage();
+      renderHistory();
+      bindEvents();
+      refreshData();
+    }
+
+    function bindEvents() {
+      els.refreshButton.addEventListener("click", () => refreshData({ manual: true }));
+      els.copyButton.addEventListener("click", copyIp);
+      els.clearHistoryButton.addEventListener("click", clearHistory);
+
+      els.sourceSelect.addEventListener("change", () => {
+        localStorage.setItem(SOURCE_KEY, els.sourceSelect.value);
+        showToast(format("sourceSetToast", { label: selectedSourceLabel() }));
+        refreshData({ manual: true });
+      });
+
+      els.familyButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          setFamilyChoice(button.dataset.familyChoice || "ipv4", { persist: true, announce: true, refresh: true });
+        });
+      });
+
+      els.languageButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          setLanguageChoice(button.dataset.langChoice || "auto", { persist: true, announce: true });
+        });
+      });
+
+      els.themeButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          setThemeChoice(button.dataset.themeChoice || "auto", { persist: true, announce: true });
+        });
+      });
+
+      systemThemeQuery.addEventListener("change", () => {
+        if (themeChoice === "auto") {
+          applyTheme();
+        }
+      });
+    }
+
+    async function refreshData(options = {}) {
+      if (isRefreshing) return;
+      isRefreshing = true;
+      setState("loading", options.manual ? "manualRefreshing" : "syncing");
+      els.refreshButton.disabled = true;
+      els.sourceValue.textContent = selectedSourceLabel();
+      els.sourceMeta.textContent = t("requesting");
+
+      let result = null;
+      let lastError = null;
+      const activeProviders = selectedProviders();
+      const autoMode = els.sourceSelect.value === "auto";
+
+      if (!activeProviders.length) {
+        lastError = new Error(format("familyUnsupported", {
+          source: selectedSourceLabel(),
+          family: familyLabel(familyChoice),
+        }));
+      }
+
+      for (const provider of activeProviders) {
+        const start = performance.now();
+
+        try {
+          const raw = await fetchProvider(provider, familyChoice);
+          result = provider.normalize(raw);
+          result.provider = provider.name;
+          result.providerId = provider.id;
+          result.responseMs = Math.round(performance.now() - start);
+          result.usedFallback = autoMode && provider.id !== activeProviders[0].id;
+          break;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      if (result) {
+        result.updatedAt = new Date().toISOString();
+        currentResult = result;
+        lastSourceError = "";
+        renderResult(result);
+        saveHistory(result);
+        renderHistory();
+        setState("ok", "synced");
+      } else {
+        lastSourceError = shortError(lastError);
+        setState("error", "syncFailed");
+        renderError(lastError);
+      }
+
+      isRefreshing = false;
+      els.refreshButton.disabled = false;
+    }
+
+    async function fetchProvider(provider, choice) {
+      if (provider.urlsForIp && provider.urlsForIp[choice]) {
+        const ip = await fetchText(familyIpUrls[choice], 8000);
+        return fetchJson(provider.urlsForIp[choice](ip.trim()), 8000);
+      }
+      return fetchJson(providerUrl(provider, choice), 8000);
+    }
+
+    async function fetchJson(url, timeoutMs) {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(url, {
+          cache: "no-store",
+          signal: controller.signal,
+          headers: { "Accept": "application/json" },
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return await response.json();
+      } finally {
+        window.clearTimeout(timer);
+      }
+    }
+
+    async function fetchText(url, timeoutMs) {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(url, {
+          cache: "no-store",
+          signal: controller.signal,
+          headers: { "Accept": "text/plain" },
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return await response.text();
+      } finally {
+        window.clearTimeout(timer);
+      }
+    }
+
+    function renderResult(result) {
+      const place = formatPlace(result);
+      const coords = formatCoords(result.latitude, result.longitude);
+      const asnOrg = [result.asn, result.org].filter(Boolean).join(" / ");
+
+      renderIp(result.ip || "--");
+      els.ipType.textContent = result.ipType || inferIpType(result.ip);
+      els.sourceValue.textContent = result.provider || "--";
+      els.sourceMeta.textContent = result.responseMs
+        ? format(result.usedFallback ? "fallbackResponseMs" : "responseMs", { ms: result.responseMs })
+        : format("respondedAt", { time: formatTime(result.updatedAt) });
+      els.placeValue.textContent = place || t("noPlaceInfo");
+      els.coordsValue.textContent = coords || "--";
+      els.ispValue.textContent = result.isp || "--";
+      els.asnValue.textContent = asnOrg || result.asn || result.org || "--";
+      els.timezoneValue.textContent = result.timezone || "--";
+      els.updatedValue.textContent = formatTime(result.updatedAt);
+      els.accuracyValue.textContent = format("accuracy", { value: formatAccuracy(result) });
+      els.cityValue.textContent = result.city || "--";
+      els.regionValue.textContent = result.region || "--";
+      els.countryValue.innerHTML = formatCountryCell(result) || "--";
+
+      renderMap(result);
+    }
+
+    function renderIp(ip) {
+      const value = String(ip || "--");
+      const isIpv6 = inferIpType(value) === "IPv6";
+      els.ipAddress.classList.toggle("is-ipv6", isIpv6);
+
+      if (!isIpv6 || value === "--") {
+        els.ipAddress.textContent = value;
+        return;
+      }
+
+      const groups = value.split(":");
+      if (groups.length > 4) {
+        const middle = Math.ceil(groups.length / 2);
+        const first = groups.slice(0, middle).join(":");
+        const second = groups.slice(middle).join(":");
+        els.ipAddress.innerHTML = `<span>${escapeHtml(first)}</span><span>${escapeHtml(second)}</span>`;
+        return;
+      }
+
+      els.ipAddress.textContent = value;
+    }
+
+    function renderError(error) {
+      els.sourceMeta.textContent = shortError(error || new Error(t("unknownError")));
+      if (!currentResult) {
+        els.ipAddress.textContent = "--";
+        els.ipType.textContent = "--";
+        els.placeValue.textContent = t("cannotGetIp");
+        els.updatedValue.textContent = "--";
+      }
+    }
+
+    function renderMap(result) {
+      const lat = toNumber(result.latitude);
+      const lon = toNumber(result.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        setMapEmpty(t("noCoord"));
+        els.mapLink.href = "https://www.openstreetmap.org/";
+        return;
+      }
+
+      const urls = osmMapUrls(lat, lon);
+      const frame = document.createElement("iframe");
+      frame.className = "map-frame";
+      frame.title = currentLang === "zh" ? "OpenStreetMap 位置预览" : "OpenStreetMap location preview";
+      frame.loading = "lazy";
+      frame.referrerPolicy = "no-referrer-when-downgrade";
+      frame.src = urls.embed;
+      els.mapWrap.replaceChildren(frame);
+      els.mapLink.href = urls.link;
+    }
+
+    function setMapEmpty(message) {
+      const empty = document.createElement("div");
+      empty.className = "map-empty";
+      empty.textContent = message;
+      els.mapWrap.replaceChildren(empty);
+    }
+
+    function osmMapUrls(lat, lon) {
+      const delta = 0.12;
+      const latText = roundCoord(lat);
+      const lonText = roundCoord(lon);
+      const bbox = [
+        roundCoord(lon - delta),
+        roundCoord(lat - delta),
+        roundCoord(lon + delta),
+        roundCoord(lat + delta),
+      ].join("%2C");
+
+      return {
+        embed: `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latText}%2C${lonText}`,
+        link: `https://www.openstreetmap.org/?mlat=${latText}&mlon=${lonText}#map=11/${latText}/${lonText}`,
+      };
+    }
+
+    function saveHistory(result) {
+      if (!result || !result.ip) return;
+      const history = readHistory();
+      const newest = history[0];
+      const snapshot = {
+        timestamp: result.updatedAt,
+        ip: result.ip,
+        type: result.ipType || inferIpType(result.ip),
+        city: result.city || "",
+        region: result.region || "",
+        country: result.country || "",
+        countryCode: result.countryCode || "",
+        place: formatPlace(result) || t("noPlaceInfo"),
+        provider: result.provider || "--",
+      };
+
+      if (
+        newest &&
+        newest.ip === snapshot.ip &&
+        newest.city === snapshot.city &&
+        newest.region === snapshot.region &&
+        newest.country === snapshot.country &&
+        newest.provider === snapshot.provider
+      ) {
+        newest.timestamp = snapshot.timestamp;
+        writeHistory(history);
+        return;
+      }
+
+      history.unshift(snapshot);
+      writeHistory(history.slice(0, MAX_HISTORY));
+    }
+
+    function renderHistory() {
+      const history = readHistory();
+      if (!history.length) {
+        els.historyWrap.className = "";
+        els.historyWrap.innerHTML = `<div class="history-empty">${escapeHtml(t("noHistory"))}</div>`;
+        return;
+      }
+
+      els.historyWrap.className = "table-wrap";
+      els.historyWrap.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>${escapeHtml(t("time"))}</th>
+              <th>${escapeHtml(t("ipAddress"))}</th>
+              <th>${escapeHtml(t("ipType"))}</th>
+              <th>${escapeHtml(t("city"))}</th>
+              <th>${escapeHtml(t("region"))}</th>
+              <th>${escapeHtml(t("countryRegion"))}</th>
+              <th>${escapeHtml(t("provider"))}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${history.map((item) => {
+              const location = historyLocationParts(item);
+              return `
+                <tr>
+                  <td>${escapeHtml(formatTime(item.timestamp))}</td>
+                  <td class="mono">${formatIpForCell(item.ip)}</td>
+                  <td>${escapeHtml(item.type || inferIpType(item.ip) || "--")}</td>
+                  <td>${escapeHtml(location.city || "--")}</td>
+                  <td>${escapeHtml(location.region || "--")}</td>
+                  <td>${formatCountryCell(location) || "--"}</td>
+                  <td class="muted">${escapeHtml(item.provider || "--")}</td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function readHistory() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function writeHistory(history) {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    }
+
+    function clearHistory() {
+      localStorage.removeItem(HISTORY_KEY);
+      renderHistory();
+      showToast(t("historyCleared"));
+    }
+
+    async function copyIp() {
+      if (!currentResult || !currentResult.ip) {
+        showToast(t("noIpToCopy"));
+        return;
+      }
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(currentResult.ip);
+        } else if (!fallbackCopy(currentResult.ip)) {
+          throw new Error("Copy fallback failed");
+        }
+        showToast(t("copied"));
+      } catch (error) {
+        if (fallbackCopy(currentResult.ip)) {
+          showToast(t("copied"));
+          return;
+        }
+        showToast(t("copyBlocked"));
+      }
+    }
+
+    function fallbackCopy(value) {
+      const textarea = document.createElement("textarea");
+      textarea.value = String(value || "");
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      textarea.style.top = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      textarea.setSelectionRange(0, textarea.value.length);
+      let copied = false;
+      try {
+        copied = document.execCommand("copy");
+      } catch (error) {
+        copied = false;
+      }
+      textarea.remove();
+      return copied;
+    }
+
+    function setState(kind, key) {
+      stateKind = kind;
+      stateKey = key;
+      els.state.classList.remove("is-loading", "is-ok", "is-error");
+      if (kind === "loading") els.state.classList.add("is-loading");
+      if (kind === "ok") els.state.classList.add("is-ok");
+      if (kind === "error") els.state.classList.add("is-error");
+      els.stateText.textContent = t(key);
+    }
+
+    function applyLanguage() {
+      currentLang = resolveLanguage();
+      document.documentElement.lang = currentLang === "zh" ? "zh-CN" : "en";
+      document.title = t("pageTitle");
+      document.querySelector('meta[name="description"]').setAttribute("content", t("metaDescription"));
+
+      els.sourceSelectLabel.textContent = t("source");
+      els.familyToggle.setAttribute("aria-label", t("ipFamily"));
+      els.languageToggle.setAttribute("aria-label", t("language"));
+      els.themeToggle.setAttribute("aria-label", t("theme"));
+      document.getElementById("currentIpTitle").textContent = t("publicIp");
+      els.sourceBlockLabel.textContent = t("source");
+      els.coordsLabel.textContent = t("coords");
+      els.ispLabel.textContent = t("isp");
+      els.asnLabel.textContent = t("asnOrg");
+      els.timezoneLabel.textContent = t("timezone");
+      els.updatedLabel.textContent = t("lastUpdated");
+      els.mapTitle.textContent = t("mapTitle");
+      els.cityLabel.textContent = t("city");
+      els.regionLabel.textContent = t("region");
+      els.countryLabel.textContent = t("countryRegion");
+      els.historyTitle.textContent = t("historyTitle");
+      els.historySub.textContent = t("historySub");
+      els.footerNotes[0].textContent = t("allClientSide");
+      els.footerNotes[1].textContent = t("ipAccuracyNote");
+      els.refreshButton.title = t("refresh");
+      els.refreshButton.setAttribute("aria-label", t("refresh"));
+      els.copyButton.title = t("copyIp");
+      els.copyButton.setAttribute("aria-label", t("copyIp"));
+      els.clearHistoryButton.title = t("clearHistory");
+      els.clearHistoryButton.setAttribute("aria-label", t("clearHistory"));
+
+      renderSourceOptions();
+      updateFamilyButtons();
+      updateLanguageButtons();
+      updateThemeButtons();
+      setState(stateKind, stateKey);
+      renderHistory();
+
+      if (currentResult) {
+        renderResult(currentResult);
+      } else {
+        els.placeValue.textContent = stateKind === "error" ? t("cannotGetIp") : t("fetchingPlace");
+        els.sourceMeta.textContent = lastSourceError || t("waitingResponse");
+        els.accuracyValue.textContent = t("mapDefaultSub");
+      }
+    }
+
+    function setLanguageChoice(choice, options = {}) {
+      languageChoice = normalizeLanguageChoice(choice);
+      if (options.persist) {
+        localStorage.setItem(LANG_KEY, languageChoice);
+      }
+      applyLanguage();
+      if (options.announce) {
+        showToast(t("languageSetToast"));
+      }
+    }
+
+    function updateLanguageButtons() {
+      els.languageButtons.forEach((button) => {
+        const choice = button.dataset.langChoice || "auto";
+        const label = languageLabel(choice);
+        const isActive = choice === languageChoice;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+        button.setAttribute("aria-label", label);
+        button.title = label;
+      });
+    }
+
+    function normalizeLanguageChoice(choice) {
+      return ["auto", "zh", "en"].includes(choice) ? choice : "auto";
+    }
+
+    function languageLabel(choice) {
+      if (choice === "zh") return t("zh");
+      if (choice === "en") return currentLang === "zh" ? "English" : "English";
+      return t("auto");
+    }
+
+    function applyTheme() {
+      const theme = themeChoice === "auto" ? (systemThemeQuery.matches ? "dark" : "light") : themeChoice;
+      document.documentElement.dataset.theme = theme;
+    }
+
+    function setThemeChoice(choice, options = {}) {
+      themeChoice = normalizeThemeChoice(choice);
+      if (options.persist) {
+        localStorage.setItem(THEME_KEY, themeChoice);
+      }
+      applyTheme();
+      updateThemeButtons();
+      if (options.announce) {
+        showToast(t("themeSetToast"));
+      }
+    }
+
+    function updateThemeButtons() {
+      els.themeButtons.forEach((button) => {
+        const choice = button.dataset.themeChoice || "auto";
+        const label = themeLabel(choice);
+        const isActive = choice === themeChoice;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+        button.setAttribute("aria-label", label);
+        button.title = label;
+      });
+    }
+
+    function normalizeThemeChoice(choice) {
+      return ["auto", "light", "dark"].includes(choice) ? choice : "auto";
+    }
+
+    function themeLabel(choice) {
+      if (choice === "light") return t("light");
+      if (choice === "dark") return t("dark");
+      return t("auto");
+    }
+
+    function setFamilyChoice(choice, options = {}) {
+      familyChoice = normalizeFamilyChoice(choice);
+      if (options.persist) {
+        localStorage.setItem(FAMILY_KEY, familyChoice);
+      }
+      updateFamilyButtons();
+      const previousSource = els.sourceSelect.value;
+      renderSourceOptions(previousSource);
+      if (els.sourceSelect.value !== previousSource) {
+        localStorage.setItem(SOURCE_KEY, els.sourceSelect.value);
+      }
+      if (options.announce) {
+        showToast(format("familySetToast", { label: familyLabel(familyChoice) }));
+      }
+      if (options.refresh) {
+        refreshData({ manual: true });
+      }
+    }
+
+    function updateFamilyButtons() {
+      els.familyButtons.forEach((button) => {
+        const choice = button.dataset.familyChoice || "ipv4";
+        const label = familyLabel(choice);
+        const isActive = choice === familyChoice;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+        button.setAttribute("aria-label", label);
+        button.title = label;
+      });
+    }
+
+    function normalizeFamilyChoice(choice) {
+      return ["ipv4", "ipv6"].includes(choice) ? choice : "ipv4";
+    }
+
+    function familyLabel(choice) {
+      if (choice === "ipv4") return t("ipv4");
+      if (choice === "ipv6") return t("ipv6");
+      return t("ipv4");
+    }
+
+    function renderSourceOptions(preferredValue = els.sourceSelect.value || "auto") {
+      const value = preferredValue || "auto";
+      const availableProviders = providersForFamily();
+      els.sourceSelect.innerHTML = [
+        `<option value="auto">${escapeHtml(t("autoSource"))}</option>`,
+        ...availableProviders.map((provider) => `<option value="${escapeHtml(provider.id)}">${escapeHtml(provider.name)}</option>`),
+      ].join("");
+      els.sourceSelect.value = availableProviders.some((provider) => provider.id === value) ? value : "auto";
+    }
+
+    function selectedProviders() {
+      const selected = els.sourceSelect.value;
+      const availableProviders = providersForFamily();
+      if (selected === "auto") return availableProviders;
+      return availableProviders.filter((provider) => provider.id === selected);
+    }
+
+    function selectedSourceLabel() {
+      if (els.sourceSelect.value === "auto") return t("autoSource");
+      const provider = providers.find((item) => item.id === els.sourceSelect.value);
+      return provider ? provider.name : t("autoSource");
+    }
+
+    function providersForFamily(choice = familyChoice) {
+      return providers.filter((provider) => providerUrl(provider, choice) || (provider.urlsForIp && provider.urlsForIp[choice]));
+    }
+
+    function providerUrl(provider, choice = familyChoice) {
+      if (!provider || !provider.urls) return "";
+      return provider.urls[choice] || (choice === "auto" ? provider.urls.auto : "");
+    }
+
+    function resolveLanguage() {
+      const choice = languageChoice;
+      if (choice === "zh" || choice === "en") return choice;
+      const languages = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || "en"];
+      return languages.some((lang) => String(lang).toLowerCase().startsWith("zh")) ? "zh" : "en";
+    }
+
+    function t(key) {
+      return (i18n[currentLang] && i18n[currentLang][key]) || i18n.en[key] || key;
+    }
+
+    function format(key, values = {}) {
+      return t(key).replace(/\{(\w+)\}/g, (_, name) => values[name] ?? "");
+    }
+
+    function formatPlace(result) {
+      const delimiter = currentLang === "zh" ? "，" : ", ";
+      return [result.city, result.region, result.country || result.countryCode].filter(Boolean).join(delimiter);
+    }
+
+    function historyLocationParts(item) {
+      if (item.city || item.region || item.country || item.countryCode) {
+        return item;
+      }
+
+      const parts = String(item.place || "")
+        .split(/[，,]/)
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+      return {
+        city: parts[0] || "",
+        region: parts[1] || "",
+        country: parts.slice(2).join(currentLang === "zh" ? "，" : ", ") || "",
+        countryCode: "",
+      };
+    }
+
+    function formatCountryCell(result) {
+      const label = result.country || result.countryCode || "";
+      if (!label) return "";
+      const code = result.countryCode || inferCountryCode(label);
+      const flag = countryFlag(code);
+      const flagMarkup = flag ? `<span class="flag" aria-hidden="true">${escapeHtml(flag)}</span>` : "";
+      return `<span class="country-inline">${flagMarkup}<span>${escapeHtml(label)}</span></span>`;
+    }
+
+    function countryFlag(code) {
+      const normalized = String(code || "").trim().toUpperCase();
+      if (!/^[A-Z]{2}$/.test(normalized)) return "";
+      return [...normalized]
+        .map((letter) => String.fromCodePoint(127397 + letter.charCodeAt(0)))
+        .join("");
+    }
+
+    function inferCountryCode(value) {
+      const normalized = String(value || "").trim().toLowerCase();
+      const map = {
+        china: "CN",
+        "中国": "CN",
+        cn: "CN",
+        "united states": "US",
+        "united states of america": "US",
+        usa: "US",
+        us: "US",
+        america: "US",
+        "美国": "US",
+        germany: "DE",
+        deutschland: "DE",
+        "德国": "DE",
+        de: "DE",
+      };
+      return map[normalized] || "";
+    }
+
+    function formatAccuracy(result) {
+      if (result.accuracyKind === "km" && result.accuracyKm) {
+        return format("accuracyKm", { km: result.accuracyKm });
+      }
+      if (result.accuracyKind === "ipOnly") return t("ipOnly");
+      return t("cityLevel");
+    }
+
+    function formatCoords(lat, lon) {
+      const latitude = toNumber(lat);
+      const longitude = toNumber(lon);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return "";
+      return `${roundCoord(latitude)}, ${roundCoord(longitude)}`;
+    }
+
+    function formatTime(value) {
+      if (!value) return "--";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "--";
+      return new Intl.DateTimeFormat(currentLang === "zh" ? "zh-CN" : "en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      }).format(date);
+    }
+
+    function inferIpType(ip) {
+      if (!ip) return "--";
+      return String(ip).includes(":") ? "IPv6" : "IPv4";
+    }
+
+    function formatIpForCell(ip) {
+      const value = String(ip || "--");
+      if (inferIpType(value) !== "IPv6") {
+        return escapeHtml(value);
+      }
+      const groups = value.split(":");
+      if (groups.length <= 4) {
+        return escapeHtml(value);
+      }
+      const middle = Math.ceil(groups.length / 2);
+      return [
+        groups.slice(0, middle).join(":"),
+        groups.slice(middle).join(":"),
+      ].map((line) => `<span class="ip-cell-line">${escapeHtml(line)}</span>`).join("");
+    }
+
+    function toNumber(value) {
+      if (value === null || value === undefined || value === "") return null;
+      const number = Number(value);
+      return Number.isFinite(number) ? number : null;
+    }
+
+    function roundCoord(value) {
+      return Number(value).toFixed(5);
+    }
+
+    function shortError(error) {
+      if (!error) return t("unknownError");
+      if (error.name === "AbortError") return t("timeout");
+      return String(error.message || error).slice(0, 80);
+    }
+
+    function showToast(message) {
+      els.toast.textContent = message;
+      els.toast.classList.add("is-visible");
+      window.clearTimeout(showToast.timer);
+      showToast.timer = window.setTimeout(() => els.toast.classList.remove("is-visible"), 2200);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+  </script>
+</body>
+</html>
